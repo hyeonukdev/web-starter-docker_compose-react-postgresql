@@ -1,0 +1,88 @@
+version: '3'
+
+services:
+  backend:
+    container_name: web-starter-back
+    build:
+      context: backend/
+      dockerfile: Dockerfile
+    networks:
+      - web_starter_network
+    volumes:
+      - ./backend:/backend
+    depends_on:
+      - db
+    ports:
+      - "8000:8000"
+    command:
+      - bash
+      - -c
+      - |
+        /wait-for-it.sh db:5432 -t 10
+        /python manage.py migrate
+        python manage.py runserver 0:8000
+    #expose :
+      #  - "8000"
+    environment:
+      - DJANGO_DEBUG=True
+    links:
+      - db:db
+    restart: always
+
+  frontend:
+    container_name: web-starter-front
+    build:
+      context: frontend/
+      dockerfile: Dockerfile
+    networks:
+      - web_starter_network
+    volumes:
+      - ./frontend:/frontend
+      - ./frontend/node_modules:/frontend/node_modules
+    environment:
+      - NODE_ENV=development
+      - CHOKIDAR_USEPOLLING=true
+      - HOST_URL=http://127.0.0.1:8000
+    ports:
+      - "8081:8081"
+    #expose :
+      #  - "8081"
+    restart: always
+
+  db:
+    image: postgres:latest
+    container_name: web-starter-postgres
+    restart: always
+    ports:
+      - "5432:5432"
+    volumes:
+      - db:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_INITDB_ARGS=--encoding=UTF-8
+    networks:
+      - web_starter_network
+
+  nginx:
+    build:
+        context: nginx/
+        dockerfile: Dockerfile
+    volumes:
+        -  ./nginx:/nginx
+    depends_on:
+        - frontend
+        - backend
+    ports:
+        - "8080:80"
+    networks:
+        - web_starter_network
+    restart: always
+
+volumes:
+  db: {}
+
+networks:
+    web_starter_network:
+        external: true
